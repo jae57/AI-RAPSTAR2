@@ -5,10 +5,15 @@ import pkg_resources
 import random
 
 KOR_DICT = './korean.dict'
+RHYME_DICT = './rhyme.dict'
+SCHEME_DICT = './scheme.dict'
 
 pronunciations = None
 lookup = None
 rhyme_lookup = None
+
+schemes = None
+lookup_scheme = None
 
 def _stream(resource_name):
     stream = pkg_resources.resource_stream(__name__, resource_name)
@@ -16,6 +21,10 @@ def _stream(resource_name):
 
 def dict_stream():
     stream = _stream(KOR_DICT)
+    return stream
+
+def schemedict_stream():
+    stream = _stream(SCHEME_DICT)
     return stream
 
 def parse_kordict(korhd):
@@ -26,6 +35,18 @@ def parse_kordict(korhd):
         word, phones = line.split(" ", 1)
         pronunciations.append((word, phones))
     return pronunciations
+
+def parse_schemedict(schhd):
+    schemes = list()
+    for line in schhd:
+        line = line.strip().decode('utf-8')
+        line = line.replace('\ufeff', '')
+        if line == '':
+            continue
+        else:
+            word, scheme = line.split(" ",1)
+        schemes.append((word, scheme))
+    return schemes
 
 def init_kodict(filehandle=None):
     global pronunciations, lookup
@@ -39,6 +60,31 @@ def init_kodict(filehandle=None):
             if lookup.get(word) is None:
                 lookup[word].append(parses)
 
+def init_schemedict(filehandle=None):
+    global schemes, lookup_scheme
+    if schemes is None:
+        if filehandle is None:
+            filehandle = schemedict_stream()
+        schemes = parse_schemedict(filehandle)
+        filehandle.close()
+        lookup_scheme = collections.defaultdict(list)
+        for word, scheme in schemes:
+            if lookup_scheme.get(word) is None:
+                lookup_scheme[word].append(scheme)
+
+def make_rhymedict(rhyme_dict):
+    wp = codecs.open(RHYME_DICT, "w", encoding='utf-8')
+    for key in rhyme_dict:
+        rhymes = ",".join(rhyme_dict[key])
+        wp.write(key+" "+rhymes+"\n")
+    wp.close()
+
+def make_schemedict(scheme_dict):
+    wp = codecs.open(SCHEME_DICT, "w", encoding='utf-8')
+    for key in scheme_dict:
+        wp.write(key+" "+str(scheme_dict[key])+"\n")
+    wp.close()
+
 def sorting_rhyme(rhyme_list):
     parse_word = collections.defaultdict(list)
     for line in rhyme_list:
@@ -47,8 +93,8 @@ def sorting_rhyme(rhyme_list):
         reverse_chars = parse[::-1]
         parse_word[line].append(reverse_chars)
 
+    # sorting_word 는 ('부릉', ['ㅇㅡㄹPㅜㅂ']) 이런 튜플들을 담은 리스트
     sorting_word = sorted(parse_word.items(), key=lambda t: t[1])
-    print(sorting_word)
 
     result = []
     for line in sorting_word:
@@ -69,6 +115,24 @@ def rhymes(word):
         if tuple[1][0] > 80 and tuple[1][0] != 100 :
             rhymes.append(tuple[0])
     return rhymes
+
+def fast_rhymeschemefinding(word):
+    init_schemedict()
+    word = word[-2:]
+    for wo, scheme in schemes:
+        if word is wo:
+            return scheme
+        else:
+            pass
+    return None
+
+def schemefinding(input):
+    init_schemedict()
+    for word, scheme in schemes:
+        if word is input:
+            return scheme
+        else:
+            return word
 
 def nonefinding(rhymescheme,rhyme_list):
     parse_sch = parses_for_word(rhymescheme)
@@ -93,7 +157,7 @@ def nonefinding(rhymescheme,rhyme_list):
 def calculate_point(parse,parses):
     point = 0 # 총 포인트
 
-    plus = 5 # 가산점
+
     # 단어 내 문자갯수를 세기 위해서 쪼개는 부분
     parse_list = parse.split()
     parses_list = parses.split()
@@ -108,8 +172,8 @@ def calculate_point(parse,parses):
             if num < 3:
                 point += 10*(3- num)
 
-            length = len(parse_list)
-            index = -(length*3+(length-1))
+            length = len(parse_list) # 작은 거 기준으로 큰거 축소시키기
+            index = -(length*3+(length-1)) # 초중종 3개씩이니까 *3 이고, length-1는 공백에 해당
             parses = parses[index:]
         else:
             num = len(parse_list) - len(parses_list)
@@ -120,8 +184,10 @@ def calculate_point(parse,parses):
             index = -(length * 3 + (length - 1))
             parse = parse[index:]
 
+    # 길이 축소 후 다시
     parse_list = parse.split()
     parses_list = parses.split()
+    plus = 5  # 가산점
     for i in range(length - 1, -1, -1):
         c_point = 0  # 글자당 포인트
             # 초성
