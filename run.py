@@ -3,8 +3,6 @@ import re
 import random
 import numpy as np
 import os
-import codecs
-import keras
 import datetime
 from keras.models import Sequential
 from keras.layers import LSTM
@@ -12,11 +10,11 @@ from pronouncing_kr import rhymes, sorting_rhyme, nonefinding, fast_rhymeschemef
 
 
 depth = 4
-maxchars = 20
-artist = "RAP" # used when saving the trained model
+maxchars = 16
+artist = "BTS" # used when saving the trained model
 rap_file = "neural_rap.txt" # where the rap is written to
-
-random_mode = False
+markov_file = "markov_lyric.txt"
+random_mode = True
 my_index = 16358
 
 def create_network(depth):
@@ -100,14 +98,18 @@ def generate_lyrics(text_file):
 	print("markov로 문장 생성중... ")
 	bars = []
 	last_words = []
-	lyriclength = len(open(text_file,"r",encoding='utf-8').read().split("\n"))
+
+	# markov로 만들 문장 갯수 정하는 부분
+	#lyriclength = len(open(text_file,"r",encoding='utf-8').read().split("\n")) /9;
+	lyriclength= 620
 	print("원본가사로 markov모델 생성..")
 	markov_model = markov(text_file)
 	print(".. 완료!!")
 
-	# lyriclength / 9 값을 증가시켜서 더많이 생성시킬 수 있음!
-	print("markov모델을 이용해 ",lyriclength / 9, "개의 문장을 생성합니다.")
-	while len(bars) < lyriclength / 9 :
+	print("markov모델을 이용해 ",lyriclength, "개의 문장을 생성합니다.")
+	# 아래는 생성된 문장이 조건에 맞으면 바로 추가할 텍스트 파일
+
+	while len(bars) < lyriclength :
 		bar = markov_model.make_sentence()
 		print(bar)
 		if type(bar) != type(None):
@@ -121,7 +123,10 @@ def generate_lyrics(text_file):
 				
 			last_word = get_last_word(bar)
 			if bar not in bars and last_words.count(last_word) < 3:
+				m = open(markov_file, "a", encoding="UTF-8")
 				bars.append(bar)
+				m.write(bar + '\n')
+				m.close()
 				last_words.append(last_word)
 		print("====> 현재 수집된 문장 개수 : ",len(bars))
 	print("markov로 새로운 문장생성 완료!! ( 원본 가사 개수 : ",lyriclength," | markov로 만든 문장 개수 : ",len(bars)," )")

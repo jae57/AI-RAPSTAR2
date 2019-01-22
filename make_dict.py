@@ -1,7 +1,7 @@
 import codecs
 import re
 import datetime
-from pronouncing_kr import sorting_rhyme
+import pickle
 
 # 유니코드 한글 시작 : 44032, 끝 : 55199
 BASE_CODE, CHOSUNG, JUNGSUNG = 44032, 588, 28
@@ -18,42 +18,38 @@ JONGSUNG_LIST = [' ', 'ㄱ', 'ㄲ', 'ㄳ', 'ㄴ', 'ㄵ', 'ㄶ', 'ㄷ', 'ㄹ', '�
 def make_dict() :
     start = datetime.datetime.now()
     print("사전 만드는 중... ( "+str(start)+" )")
+
+    # 저장소 설정
+    dataW = open('dictionary.pickle','wb')
+
+    # 가사 파일 열기
     input_file = "lyrics.txt"
-    output_file = "korean.dict"
     fp = codecs.open(input_file, 'r', encoding='utf-8')
-    wp = codecs.open(output_file,"w",encoding='utf-8')
     text = fp.read()
+    fp.close()
+
+    # 불필요한 성분 제거
     text = text.replace('\ufeff','')
     text = text.strip()
+    text = text.replace("\r\n","\n")
     lines = text.split("\n")
-    word_list = []
 
-    while "\r" in lines:
-        lines.remove("\r")
+    # 자료형을 딕셔너리로 설정. 따로 중복값 제거 안해줘도 되므로
+    word_list = {}
 
     for line in lines:
-        line = line.replace(' \r','')
-        line = line.replace('.','')
-        line = line.replace(',', '')
-        line = line.replace('?', '')
-        line = line.replace('!','')
-        line = line.replace('~', '')
-        # => 한문장으로는 안되는지...
         inputs = line.split(" ")
 
         for input in inputs:
-            if re.match('.*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*', input[:1]) is None:
+            input = input.strip()
+
+            # 숫자나 공백, 한문 같은거 걸러냄. 오직 한글만 match
+            if re.match('.*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*', input) is None:
                 continue
 
-            charac = ()
-            test_keyword = input
-            split_keyword_list = list(test_keyword)
-            #print(split_keyword_list)
-
+            split_keyword_list = list(input)
             cha = []
-
             for keyword in split_keyword_list:
-                print(keyword)
                 # 한글 여부 check 후 분리
                 if re.match('.*[ㄱ-ㅎㅏ-ㅣ가-힣]+.*', keyword) is not None:
                     char_code = ord(keyword) - BASE_CODE
@@ -65,20 +61,11 @@ def make_dict() :
                         cha.append(CHOSUNG_LIST[char1] + JUNGSUNG_LIST[char2] + "P")
                     else:
                         cha.append(CHOSUNG_LIST[char1]+JUNGSUNG_LIST[char2]+JONGSUNG_LIST[char3])
-            input = input.replace(" ","")
-            input = input.replace("\r", "")
-            input = input+" "+" ".join(cha)
+            word_list[input]=" ".join(cha)
 
-            word_list.append(input)
-            ## 중복된 값 없애기
+    pickle.dump(word_list,dataW,pickle.HIGHEST_PROTOCOL)
+    print("총 "+str(len(word_list))+"개의 어절이 사전에 등록되었습니다.")
 
-    word_list = set(word_list)
-    word_list = tuple(word_list)
-    word_list = list(word_list)
-
-    wp.write("\n".join(word_list))
-    fp.close()
-    wp.close()
     end = datetime.datetime.now()
     print("사전 구축 완료 ( " + str(end) + " )")
     print("===> 총 걸린 시간 : "+str(end-start))

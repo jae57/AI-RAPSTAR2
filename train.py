@@ -1,10 +1,9 @@
 import markovify
+import pickle
 import re
 import os
 import random
 import numpy as np
-import codecs
-import keras
 import datetime
 from keras.models import Sequential
 from keras.layers import LSTM
@@ -45,9 +44,9 @@ def chars(line):
 
 
 def rhymeindex(lyrics):
-    if str(artist) + ".rhymes" in os.listdir(".") :
-        print("이전에 생성된 라임리스트( " + str(artist) + ".rhymes )를 불러오는 중..")
-        return open(str(artist) + ".rhymes", "r", encoding="utf-8").read().split("\n")
+    if "rhymes.pickle" in os.listdir(".") :
+        print("이전에 생성된 라임리스트(rhymes.pickle) 불러오는 중..")
+        return pickle.load(open('rhymes.pickle','rb'))
     else:
         rhyme_master_list = []
         rhyme_dict = {}
@@ -55,7 +54,9 @@ def rhymeindex(lyrics):
         print("라임리스트 생성중... ")
         for i in lyrics:
             word = re.sub(r"\W+", '', i.split(" ")[-1])
-            if word in rhyme_dict:
+            if word == '':
+                continue
+            if word in rhyme_dict.keys():
                 continue
             rhymeslist = rhymes(word)
             rhyme_dict[word] = rhymeslist
@@ -83,8 +84,10 @@ def rhymeindex(lyrics):
         return rhymelist
 
 def rhyme(line, rhyme_list):
-    word = re.sub(r"\W+", '', line.split(" ")[-1])
+    word = re.sub(r"\W+", '', line.split(" ")[-1])  # \w+ 한개 이상의 알파벳이나 숫자 없앰
     rhymescheme = schemefinding(word[-2:])
+    print(word[-2:])
+    print(rhymescheme)
     try:
         float_rhyme = rhyme_list.index(rhymescheme)
     except Exception:  # 라임리스트에서 못찾으면
@@ -216,6 +219,7 @@ def vectors_into_song(vectors, generated_lyrics, rhyme_list):
         return penalty
 
     def calculate_score(vector_half, chars, rhyme, penalty):
+        print("calculate_score")
         print(vector_half)
         desired_chars = vector_half[0]
         desired_rhyme = vector_half[1]

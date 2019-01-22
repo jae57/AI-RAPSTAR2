@@ -1,89 +1,30 @@
-import codecs
 import re
 import collections
-import pkg_resources
 import random
-
-KOR_DICT = './korean.dict'
-RHYME_DICT = './rhyme.dict'
-SCHEME_DICT = './scheme.dict'
+import pickle
 
 pronunciations = None
-lookup = None
 rhyme_lookup = None
 
-schemes = None
-lookup_scheme = None
+schemes = {}
 
-def _stream(resource_name):
-    stream = pkg_resources.resource_stream(__name__, resource_name)
-    return stream
+def init_kodict():
+    global pronunciations
+    dataR = open('dictionary.pickle', 'rb')
+    pronunciations = pickle.load(dataR)
 
-def dict_stream():
-    stream = _stream(KOR_DICT)
-    return stream
-
-def schemedict_stream():
-    stream = _stream(SCHEME_DICT)
-    return stream
-
-def parse_kordict(korhd):
-    pronunciations = list()
-    for line in korhd:
-        line = line.strip().decode('utf-8')
-        line = line.replace('\ufeff', '')
-        word, phones = line.split(" ", 1)
-        pronunciations.append((word, phones))
-    return pronunciations
-
-def parse_schemedict(schhd):
-    schemes = list()
-    for line in schhd:
-        line = line.strip().decode('utf-8')
-        line = line.replace('\ufeff', '')
-        if line == '':
-            continue
-        else:
-            word, scheme = line.split(" ",1)
-        schemes.append((word, scheme))
-    return schemes
-
-def init_kodict(filehandle=None):
-    global pronunciations, lookup
-    if pronunciations is None:
-        if filehandle is None:
-            filehandle = dict_stream()
-        pronunciations = parse_kordict(filehandle)
-        filehandle.close()
-        lookup = collections.defaultdict(list)
-        for word, parses in pronunciations:
-            if lookup.get(word) is None:
-                lookup[word].append(parses)
-
-def init_schemedict(filehandle=None):
-    global schemes, lookup_scheme
-    if schemes is None:
-        if filehandle is None:
-            filehandle = schemedict_stream()
-        schemes = parse_schemedict(filehandle)
-        filehandle.close()
-        lookup_scheme = collections.defaultdict(list)
-        for word, scheme in schemes:
-            if lookup_scheme.get(word) is None:
-                lookup_scheme[word].append(scheme)
+def init_schemedict():
+    global schemes
+    dataR = open('scheme.pickle','rb')
+    schemes = pickle.load(dataR)
 
 def make_rhymedict(rhyme_dict):
-    wp = codecs.open(RHYME_DICT, "w", encoding='utf-8')
-    for key in rhyme_dict:
-        rhymes = ",".join(rhyme_dict[key])
-        wp.write(key+" "+rhymes+"\n")
-    wp.close()
+    dataW = open('rhyme.pickle','wb')
+    pickle.dump(rhyme_dict,dataW,pickle.HIGHEST_PROTOCOL)
 
 def make_schemedict(scheme_dict):
-    wp = codecs.open(SCHEME_DICT, "w", encoding='utf-8')
-    for key in scheme_dict:
-        wp.write(key+" "+str(scheme_dict[key])+"\n")
-    wp.close()
+    dataW = open('scheme.pickle', 'wb')
+    pickle.dump(scheme_dict, dataW, pickle.HIGHEST_PROTOCOL)
 
 def sorting_rhyme(rhyme_list):
     parse_word = collections.defaultdict(list)
@@ -104,10 +45,10 @@ def sorting_rhyme(rhyme_list):
 
 def rhymes(word):
     init_kodict()
-    parse = parses_for_word(word)
+    parse = pronunciations[word]
     rhyme_point = collections.defaultdict(list)
-    for word, parses in pronunciations:
-        point = calculate_point(parse,parses)
+    for word in pronunciations.keys():
+        point = calculate_point(parse,pronunciations[word])
         rhyme_point[word].append(point)
     rhyme_word = sorted(rhyme_point.items(),key= lambda t:t[1] ,reverse = True)
     rhymes = []
@@ -119,20 +60,20 @@ def rhymes(word):
 def fast_rhymeschemefinding(word):
     init_schemedict()
     word = word[-2:]
-    for wo, scheme in schemes:
+    for wo in schemes.keys():
         if word is wo:
-            return scheme
+            return schemes[wo]
         else:
             pass
     return None
 
 def schemefinding(input):
-    init_schemedict()
-    for word, scheme in schemes:
-        if word is input:
-            return scheme
-        else:
-            return word
+    if len(schemes) == 0:
+        init_schemedict()
+    for word in schemes.keys():
+        if word == input:
+            return schemes[word]
+    return input
 
 def nonefinding(rhymescheme,rhyme_list):
     parse_sch = parses_for_word(rhymescheme)
@@ -156,8 +97,6 @@ def nonefinding(rhymescheme,rhyme_list):
     # parses는 dictionary에 있는 단어
 def calculate_point(parse,parses):
     point = 0 # 총 포인트
-
-
     # 단어 내 문자갯수를 세기 위해서 쪼개는 부분
     parse_list = parse.split()
     parses_list = parses.split()
